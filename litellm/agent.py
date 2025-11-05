@@ -170,13 +170,23 @@ class MyCustomLLM(litellm.CustomLLM):
                     choice = chunk.choices[0]
                     delta = choice.delta if hasattr(choice, "delta") else None
 
+                    # usageの処理: Pydanticモデルの場合はmodel_dump()を使用
+                    usage_dict = {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0}
+                    if hasattr(chunk, "usage") and chunk.usage:
+                        if hasattr(chunk.usage, "model_dump"):
+                            usage_dict = chunk.usage.model_dump()
+                        elif hasattr(chunk.usage, "dict"):
+                            usage_dict = chunk.usage.dict()
+                        elif isinstance(chunk.usage, dict):
+                            usage_dict = chunk.usage
+
                     generic_streaming_chunk: GenericStreamingChunk = {
                         "finish_reason": choice.finish_reason if hasattr(choice, "finish_reason") else None,
                         "index": choice.index if hasattr(choice, "index") else 0,
                         "is_finished": choice.finish_reason is not None if hasattr(choice, "finish_reason") else False,
                         "text": delta.content if delta and hasattr(delta, "content") and delta.content else "",
                         "tool_use": None,
-                        "usage": chunk.usage._asdict() if hasattr(chunk, "usage") and chunk.usage else {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0},
+                        "usage": usage_dict,
                     }
                     yield generic_streaming_chunk
             logger.info("Tool-based streaming response completed")
@@ -194,13 +204,23 @@ class MyCustomLLM(litellm.CustomLLM):
                     choice = chunk.choices[0]
                     delta = choice.delta if hasattr(choice, "delta") else None
 
+                    # usageの処理: Pydanticモデルの場合はmodel_dump()を使用
+                    usage_dict = {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0}
+                    if hasattr(chunk, "usage") and chunk.usage:
+                        if hasattr(chunk.usage, "model_dump"):
+                            usage_dict = chunk.usage.model_dump()
+                        elif hasattr(chunk.usage, "dict"):
+                            usage_dict = chunk.usage.dict()
+                        elif isinstance(chunk.usage, dict):
+                            usage_dict = chunk.usage
+
                     generic_streaming_chunk: GenericStreamingChunk = {
                         "finish_reason": choice.finish_reason if hasattr(choice, "finish_reason") else None,
                         "index": choice.index if hasattr(choice, "index") else 0,
                         "is_finished": choice.finish_reason is not None if hasattr(choice, "finish_reason") else False,
                         "text": delta.content if delta and hasattr(delta, "content") and delta.content else "",
                         "tool_use": None,
-                        "usage": chunk.usage._asdict() if hasattr(chunk, "usage") and chunk.usage else {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0},
+                        "usage": usage_dict,
                     }
                     yield generic_streaming_chunk
             logger.info("Normal streaming response completed")
