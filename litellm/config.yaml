@@ -1,0 +1,19 @@
+model_list:
+  - model_name: qwen3-0.6b
+    litellm_params:
+      model: ollama_chat/qwen3:0.6b
+      api_base: http://localhost:11434
+  - model_name: gpt-5-nano
+    litellm_params:
+      model: openai/gpt-5-nano
+      api_key: os.environ/OPENAI_API_KEY
+  - model_name: "my-custom-model"
+    litellm_params:
+      model: "my-custom-llm/my-model"
+
+litellm_settings:
+  custom_provider_map:
+    - {"provider": "my-custom-llm", "custom_handler": agent.my_custom_llm}
+
+general_settings:
+  master_key: sk-1234
