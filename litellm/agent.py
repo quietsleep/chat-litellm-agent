@@ -71,18 +71,134 @@ model = "openai/gpt-5-nano"
 
 class MyCustomLLM(litellm.CustomLLM):
     def completion(self, *args, **kwargs) -> litellm.ModelResponse:
-        return litellm.completion(
+        messages = kwargs.get("messages", [])
+        logger.info(f"completion called with {len(messages)} messages")
+
+        # ツール呼び出しをチェック
+        response = litellm.completion(
             model=model,
-            messages=[{"role": "user", "content": "Hello world"}],
-            mock_response="Hi!",
-        )  # type: ignore
+            messages=messages,
+            tools=tools,
+        )
+
+        # ツール呼び出しが必要な場合
+        if (hasattr(response, "choices") and
+            len(response.choices) > 0 and
+            hasattr(response.choices[0], "finish_reason") and
+            response.choices[0].finish_reason == "tool_calls" and
+            hasattr(response.choices[0].message, "tool_calls") and
+            response.choices[0].message.tool_calls):
+
+            tool_calls = response.choices[0].message.tool_calls
+            logger.info(f"Tool calls detected in completion: {len(tool_calls)} tool(s)")
+
+            # メッセージに追加
+            messages.append({
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        }
+                    }
+                    for tc in tool_calls
+                ],
+            })
+
+            # ツールを実行
+            for tool_call in tool_calls:
+                function_name = tool_call.function.name
+                function_args = json.loads(tool_call.function.arguments)
+                logger.info(f"Executing tool in completion: {function_name} with args: {function_args}")
+
+                if function_name in available_functions:
+                    function_to_call = available_functions[function_name]
+                    function_response = function_to_call(**function_args)
+                    logger.info(f"Tool {function_name} executed successfully in completion")
+
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": function_response,
+                    })
+
+            # 最終応答を取得
+            logger.info("Getting final response in completion")
+            final_response = litellm.completion(
+                model=model,
+                messages=messages,
+            )
+            return final_response
+
+        return response
 
     async def acompletion(self, *args, **kwargs) -> litellm.ModelResponse:
-        return await litellm.acompletion(
+        messages = kwargs.get("messages", [])
+        logger.info(f"acompletion called with {len(messages)} messages")
+
+        # ツール呼び出しをチェック
+        response = await litellm.acompletion(
             model=model,
-            messages=[{"role": "user", "content": "Hello world"}],
-            mock_response="Hi!",
-        )  # type: ignore
+            messages=messages,
+            tools=tools,
+        )
+
+        # ツール呼び出しが必要な場合
+        if (hasattr(response, "choices") and
+            len(response.choices) > 0 and
+            hasattr(response.choices[0], "finish_reason") and
+            response.choices[0].finish_reason == "tool_calls" and
+            hasattr(response.choices[0].message, "tool_calls") and
+            response.choices[0].message.tool_calls):
+
+            tool_calls = response.choices[0].message.tool_calls
+            logger.info(f"Tool calls detected in acompletion: {len(tool_calls)} tool(s)")
+
+            # メッセージに追加
+            messages.append({
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        }
+                    }
+                    for tc in tool_calls
+                ],
+            })
+
+            # ツールを実行
+            for tool_call in tool_calls:
+                function_name = tool_call.function.name
+                function_args = json.loads(tool_call.function.arguments)
+                logger.info(f"Executing tool in acompletion: {function_name} with args: {function_args}")
+
+                if function_name in available_functions:
+                    function_to_call = available_functions[function_name]
+                    function_response = function_to_call(**function_args)
+                    logger.info(f"Tool {function_name} executed successfully in acompletion")
+
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": function_response,
+                    })
+
+            # 最終応答を取得
+            logger.info("Getting final response in acompletion")
+            final_response = await litellm.acompletion(
+                model=model,
+                messages=messages,
+            )
+            return final_response
+
+        return response
 
     def streaming(self, *args, **kwargs) -> Iterator[GenericStreamingChunk]:
             generic_streaming_chunk: GenericStreamingChunk = {
