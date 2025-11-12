@@ -1,3 +1,4 @@
+from re import I
 from typing import AsyncIterator, Iterator
 import time
 import json
@@ -67,12 +68,15 @@ available_functions = {
 }
 
 # model = "ollama_chat/qwen3:0.6b"
-model = "openai/gpt-5-nano"
+# model = "openai/gpt-5-nano"
 
 class MyCustomLLM(litellm.CustomLLM):
     def completion(self, *args, **kwargs) -> litellm.ModelResponse:
+        model = kwargs.get("model", "")
         messages = kwargs.get("messages", [])
         logger.info(f"completion called with {len(messages)} messages")
+        logger.info(f"completion: kwargs keys = {list(kwargs.keys())}")
+        logger.info(f"completion: model parameter = '{model}'")
 
         # ツール呼び出しをチェック
         response = litellm.completion(
@@ -136,8 +140,11 @@ class MyCustomLLM(litellm.CustomLLM):
         return response
 
     async def acompletion(self, *args, **kwargs) -> litellm.ModelResponse:
+        model = kwargs.get("model", "")
         messages = kwargs.get("messages", [])
         logger.info(f"acompletion called with {len(messages)} messages")
+        logger.info(f"acompletion: kwargs keys = {list(kwargs.keys())}")
+        logger.info(f"acompletion: model parameter = '{model}'")
 
         # ツール呼び出しをチェック
         response = await litellm.acompletion(
@@ -145,6 +152,7 @@ class MyCustomLLM(litellm.CustomLLM):
             messages=messages,
             tools=tools,
         )
+        print(response)
 
         # ツール呼び出しが必要な場合
         if (hasattr(response, "choices") and
@@ -200,21 +208,13 @@ class MyCustomLLM(litellm.CustomLLM):
 
         return response
 
-    def streaming(self, *args, **kwargs) -> Iterator[GenericStreamingChunk]:
-            generic_streaming_chunk: GenericStreamingChunk = {
-                "finish_reason": "stop",
-                "index": 0,
-                "is_finished": True,
-                "text": str(int(time.time())),
-                "tool_use": None,
-                "usage": {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0},
-            }
-            return generic_streaming_chunk # type: ignore
-
     async def astreaming(self, *args, **kwargs) -> AsyncIterator[GenericStreamingChunk]:
         # OpenWebUIからのメッセージを取得
+        model = kwargs.get("model", "")
         messages = kwargs.get("messages", [])
         logger.info(f"astreaming called with {len(messages)} messages")
+        logger.info(f"astreaming: kwargs keys = {list(kwargs.keys())}")
+        logger.info(f"astreaming: model parameter = '{model}'")
 
         # まずツール呼び出しの必要性をチェック (非ストリーミング)
         logger.info("Checking if tool calls are needed (non-streaming)")
@@ -224,12 +224,12 @@ class MyCustomLLM(litellm.CustomLLM):
             stream=False,
             tools=tools,
         )
+        print(initial_response)
 
         # ツール呼び出しが必要かチェック
         if (hasattr(initial_response, "choices") and
             len(initial_response.choices) > 0 and
             hasattr(initial_response.choices[0], "finish_reason") and
-            initial_response.choices[0].finish_reason == "tool_calls" and
             hasattr(initial_response.choices[0].message, "tool_calls") and
             initial_response.choices[0].message.tool_calls):
 

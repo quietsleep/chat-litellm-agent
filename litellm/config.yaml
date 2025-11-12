@@ -9,7 +9,8 @@ model_list:
       api_key: os.environ/OPENAI_API_KEY
   - model_name: "my-custom-model"
     litellm_params:
-      model: "my-custom-llm/my-model"
+      model: "my-custom-llm/ollama_chat/qwen3:0.6b"
+      api_base: http://localhost:11434
 
 litellm_settings:
   custom_provider_map:
