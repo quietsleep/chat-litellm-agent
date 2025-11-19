@@ -2,6 +2,8 @@
 
 ## Ollama
 
+一度だけ実行すれば良い。
+
 ```sh
 ollama pull qwen3:0.6b
 ```
@@ -9,7 +11,7 @@ ollama pull qwen3:0.6b
 ## Open WebUI
 
 ```sh
-uvx --python 3.11 open-webui serve
+DATA_DIR=~/.open-webui uvx --python 3.11 open-webui@latest serve
 ```
 
 ## Litellm
@@ -36,4 +38,18 @@ curl -X POST 'http://0.0.0.0:4000/chat/completions' -H 'Content-Type: applicatio
     ]
 }'
 curl -s http://localhost:4000/v1/models -H "Authorization: Bearer sk-1234"
+```
+
+## Install
+
+### Ollama
+
+```sh
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+### Open WebUI
+
+```sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
