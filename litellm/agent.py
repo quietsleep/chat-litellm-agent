@@ -216,47 +216,129 @@ class MyCustomLLM(litellm.CustomLLM):
         logger.info(f"astreaming: kwargs keys = {list(kwargs.keys())}")
         logger.info(f"astreaming: model parameter = '{model}'")
 
-        # まずツール呼び出しの必要性をチェック (非ストリーミング)
-        logger.info("Checking if tool calls are needed (non-streaming)")
-        initial_response = await litellm.acompletion(
-            model=model,
-            messages=messages,
-            stream=False,
-            tools=tools,
-        )
-        print(initial_response)
+        # ストリーミングでツール呼び出しをチェックするかどうかの設定
+        use_stream_in_initial_completion = False  # True: stream=True, False: stream=False
+
+        # まずツール呼び出しの必要性をチェック
+        logger.info(f"Checking if tool calls are needed (use_stream_in_initial_completion={use_stream_in_initial_completion})")
+
+        if use_stream_in_initial_completion:
+            # ストリーミングモード
+            initial_stream = await litellm.acompletion(
+                model=model,
+                messages=messages,
+                stream=True,
+                tools=tools,
+            )
+
+            # ストリーミングレスポンスからツール呼び出しを収集
+            collected_tool_calls = []
+            collected_content = ""
+            finish_reason = None
+
+            async for chunk in initial_stream:
+                logger.info(f"Chunk: {chunk}")
+                if hasattr(chunk, "choices") and len(chunk.choices) > 0:
+                    choice = chunk.choices[0]
+
+                    # finish_reasonを記録
+                    if hasattr(choice, "finish_reason") and choice.finish_reason:
+                        finish_reason = choice.finish_reason
+
+                    # deltaからツール呼び出しとコンテンツを収集
+                    if hasattr(choice, "delta"):
+                        delta = choice.delta
+
+                        # コンテンツを収集
+                        if hasattr(delta, "content") and delta.content:
+                            collected_content += delta.content
+
+                        # ツール呼び出しを収集
+                        if hasattr(delta, "tool_calls") and delta.tool_calls:
+                            for tool_call_delta in delta.tool_calls:
+                                index = tool_call_delta.index if hasattr(tool_call_delta, "index") else 0
+
+                                # インデックスに対応するツール呼び出しを確保
+                                while len(collected_tool_calls) <= index:
+                                    collected_tool_calls.append({
+                                        "id": None,
+                                        "type": "function",
+                                        "function": {
+                                            "name": "",
+                                            "arguments": ""
+                                        }
+                                    })
+
+                                # ツール呼び出し情報を蓄積
+                                if hasattr(tool_call_delta, "id") and tool_call_delta.id:
+                                    collected_tool_calls[index]["id"] = tool_call_delta.id
+
+                                if hasattr(tool_call_delta, "type") and tool_call_delta.type:
+                                    collected_tool_calls[index]["type"] = tool_call_delta.type
+
+                                if hasattr(tool_call_delta, "function"):
+                                    func = tool_call_delta.function
+                                    if hasattr(func, "name") and func.name:
+                                        collected_tool_calls[index]["function"]["name"] += func.name
+                                    if hasattr(func, "arguments") and func.arguments:
+                                        collected_tool_calls[index]["function"]["arguments"] += func.arguments
+
+            logger.info(f"Stream collection complete. finish_reason={finish_reason}, tool_calls={len(collected_tool_calls)}")
+            logger.info(f"Collected tool calls: {collected_tool_calls}")
+        else:
+            # 非ストリーミングモード（従来の方法）
+            initial_response = await litellm.acompletion(
+                model=model,
+                messages=messages,
+                stream=False,
+                tools=tools,
+            )
+            logger.info(f"Non-streaming response: {initial_response}")
+
+            # レスポンスからツール呼び出しを取得
+            collected_tool_calls = []
+            finish_reason = None
+
+            if (hasattr(initial_response, "choices") and
+                len(initial_response.choices) > 0):
+                choice = initial_response.choices[0]
+
+                if hasattr(choice, "finish_reason"):
+                    finish_reason = choice.finish_reason
+
+                if (hasattr(choice, "message") and
+                    hasattr(choice.message, "tool_calls") and
+                    choice.message.tool_calls):
+                    # tool_callsを辞書形式に変換
+                    for tc in choice.message.tool_calls:
+                        collected_tool_calls.append({
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments,
+                            }
+                        })
+
+            logger.info(f"Non-streaming collection complete. finish_reason={finish_reason}, tool_calls={len(collected_tool_calls)}")
+            logger.info(f"Collected tool calls: {collected_tool_calls}")
 
         # ツール呼び出しが必要かチェック
-        if (hasattr(initial_response, "choices") and
-            len(initial_response.choices) > 0 and
-            hasattr(initial_response.choices[0], "finish_reason") and
-            hasattr(initial_response.choices[0].message, "tool_calls") and
-            initial_response.choices[0].message.tool_calls):
+        if finish_reason == "tool_calls" and collected_tool_calls:
 
             # ツール呼び出しを実行
-            tool_calls = initial_response.choices[0].message.tool_calls
-            logger.info(f"Tool calls detected: {len(tool_calls)} tool(s) to execute")
+            logger.info(f"Tool calls detected: {len(collected_tool_calls)} tool(s) to execute")
 
             # メッセージにアシスタントの応答を追加
             messages.append({
                 "role": "assistant",
-                "tool_calls": [
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        "function": {
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments,
-                        }
-                    }
-                    for tc in tool_calls
-                ],
+                "tool_calls": collected_tool_calls,
             })
 
             # 各ツールを実行して結果をメッセージに追加
-            for tool_call in tool_calls:
-                function_name = tool_call.function.name
-                function_args = json.loads(tool_call.function.arguments)
+            for tool_call in collected_tool_calls:
+                function_name = tool_call["function"]["name"]
+                function_args = json.loads(tool_call["function"]["arguments"])
                 logger.info(f"Executing tool: {function_name} with args: {function_args}")
 
                 if function_name in available_functions:
@@ -266,7 +348,7 @@ class MyCustomLLM(litellm.CustomLLM):
 
                     messages.append({
                         "role": "tool",
-                        "tool_call_id": tool_call.id,
+                        "tool_call_id": tool_call["id"],
                         "content": function_response,
                     })
                 else:
