@@ -8,6 +8,10 @@ model_list:
     litellm_params:
       model: my-custom-llm/openai/gpt-5-nano
       api_key: os.environ/OPENAI_API_KEY
+  - model_name: "my-custom-gpt-4o"
+    litellm_params:
+      model: my-custom-llm/openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
   - model_name: qwen3-0.6b
     litellm_params:
       model: ollama/qwen3:0.6b

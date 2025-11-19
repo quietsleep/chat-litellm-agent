@@ -18,7 +18,7 @@ def test_weather_sync():
 
     print("\n💬 User: What's the weather in San Francisco?")
     response = client.chat.completions.create(
-        model="my-custom-model",
+        model="my-custom-qwen3-0.6b",
         messages=[
             {"role": "user", "content": "What's the weather in San Francisco?"}
         ],
@@ -53,7 +53,7 @@ async def test_weather_streaming():
 
     print("\n💬 User: What's the weather like in Tokyo? Use celsius.")
     stream = await client.chat.completions.create(
-        model="my-custom-model",
+        model="my-custom-qwen3-0.6b",
         messages=[
             {"role": "user", "content": "What's the weather like in Tokyo? Use celsius."}
         ],
@@ -92,7 +92,7 @@ def test_normal_conversation():
 
     print("\n💬 User: What is 2 + 2?")
     response = client.chat.completions.create(
-        model="my-custom-model",
+        model="my-custom-qwen3-0.6b",
         messages=[
             {"role": "user", "content": "What is 2 + 2?"}
         ],
@@ -127,7 +127,7 @@ async def test_multi_weather_requests():
     for city in cities:
         print(f"\n💬 User: What's the weather in {city}?")
         response = await client.chat.completions.create(
-            model="my-custom-model",
+            model="my-custom-qwen3-0.6b",
             messages=[
                 {"role": "user", "content": f"What's the weather in {city}?"}
             ],
