@@ -1,5 +1,6 @@
 # NOTE
 
+- https://github.com/yupguv/openwebui
 - Langchain Agent + Open WebUI
   - https://medium.com/@davit_martirosyan/integrating-langgraph-agents-into-open-webui-3533cc3a47e1
 - LiteLLMエージェントにするメリットがあまりない
@@ -43,3 +44,5 @@ use_stream_in_initial_completion = False  # True: stream=True, False: stream=Fal
 - 最終レスポンスはストリーミングで返されるためユーザー体験も良好
 
 - ツール呼び出しを指定する際は少し遅くなるのは仕方ないとする。ツール呼び出しの出力自体は全文に比べて短いので問題にならないかも。ツール呼び出しする際は呼び出し確認中、呼び出し完了のサインくらいあればいいかも。
+- MCP
+  - https://www.docswell.com/s/karaage0703/ZR2DRJ-2025-06-10-235428#p62
